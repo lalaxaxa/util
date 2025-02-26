@@ -87,6 +87,8 @@ public class Config {
         //обрабатываем флаги с параметрами
         if (cmd.hasOption(FLAG_OUT_PATH)) {
             outPath = cmd.getOptionValue(FLAG_OUT_PATH);
+        }else{
+            outPath = System.getProperty("user.dir");
         }
         if (cmd.hasOption(FLAG_OUT_PREFIX)) {
             outPrefix = cmd.getOptionValue(FLAG_OUT_PREFIX);
