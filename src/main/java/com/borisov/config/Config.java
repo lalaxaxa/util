@@ -1,5 +1,8 @@
 package com.borisov.config;
 
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.cli.*;
@@ -11,19 +14,29 @@ public class Config {
     private static final String FLAG_OUT_PATH = "o";
     private static final String FLAG_OUT_PREFIX = "p";
 
+    private static boolean isPath(String str){
+        try{
+            Paths.get(str);
+            return true;
+        }catch (InvalidPathException e){
+            System.out.println("Путь " + str + " некорретный");
+            return false;
+        }
+    }
     private boolean appendMode;
     private boolean shortStatEnabled;
     private boolean fullStatEnabled;
-    private String outPath;
-    private String outPrefix;
-    private List<String> fileNames;
+    private Path outPath;
+    private Path outPrefix;
+
+    private List<Path> fileNames;
 
     public Config() {
         appendMode = false;
         shortStatEnabled = false;
         fullStatEnabled = false;
-        outPath = "";
-        outPrefix = "";
+        outPath = Paths.get("");
+        outPrefix = Paths.get("");
         fileNames = new ArrayList<>();
     }
 
@@ -39,18 +52,28 @@ public class Config {
         return fullStatEnabled;
     }
 
-    public String getOutPath() {
+    public Path getOutPath() {
         return outPath;
     }
+    private void setOutPath(String outPath) {
+        if(isPath(outPath)){
+            this.outPath = Paths.get(outPath);
+        }
+    }
 
-    public String getOutPrefix() {
+    public Path getOutPrefix() {
         return outPrefix;
     }
 
-    public List<String> getFileNames() {
-        return fileNames;
+    private void setOutPrefix(String outPrefix) {
+        if(isPath(outPrefix)){
+            this.outPrefix = Paths.get(outPrefix);
+        }
     }
 
+    public List<Path> getFileNames() {
+        return fileNames;
+    }
 
     @Override
     public String toString() {
@@ -86,18 +109,21 @@ public class Config {
 
         //обрабатываем флаги с параметрами
         if (cmd.hasOption(FLAG_OUT_PATH)) {
-            outPath = cmd.getOptionValue(FLAG_OUT_PATH);
-        }else{
-            outPath = System.getProperty("user.dir");
+            setOutPath(cmd.getOptionValue(FLAG_OUT_PATH));
+        } else{
+            setOutPath(System.getProperty("user.dir"));
         }
         if (cmd.hasOption(FLAG_OUT_PREFIX)) {
-            outPrefix = cmd.getOptionValue(FLAG_OUT_PREFIX);
+            setOutPrefix(cmd.getOptionValue(FLAG_OUT_PREFIX));
         }
 
         //все-остальное это имена файлов
         String[] remainingArgs = cmd.getArgs();
         for (String file : remainingArgs) {
-            fileNames.add(file);
+            if(isPath(file)){
+                fileNames.add(Paths.get(file));
+            }
+
         }
     }
 }

@@ -6,18 +6,12 @@ import org.apache.commons.cli.ParseException;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.nio.file.*;
+import java.util.*;
 
 public class App {
+
     private static final String LONG_FILENAME = "integers";
     private static final String DOUBLE_FILENAME = "floats";
     private static final String STRING_FILENAME = "strings";
@@ -29,113 +23,125 @@ public class App {
             return;
         }
 
-        //получить конфиг
-        Config config = new Config();
-        getConfig(args, config);
-        System.out.println(config.toString());
+        Config config = parseConfig(args);
+        if (config == null) return;
 
-        //считать исходные данные
-        List<String> lines = new ArrayList<>();
-        for (String filePath : config.getFileNames()) {
-            try {
-                readFiles(lines, filePath);
-            } catch (IOException e) {
-                System.out.println(e.getClass().getSimpleName() + ": " + e.getMessage());
-            }
-
-        }
-        System.out.println(lines);
-        if (lines.size() == 0){
-            System.out.println("Ошибка, не удалось получить исходные данные!");
+        List<String> lines = readAllFiles(config.getFileNames());
+        if (lines.isEmpty()) {
+            System.err.println("Ошибка: не удалось получить исходные данные!");
             return;
         }
 
-
-        //создать map для разных типов FilteredData с ключом FilteredData.Type
-        Map<FilteredData.Type, FilteredData> map = new HashMap<>();
-        //заполнить map
-        fillMap(map);
-        //отфильтровать lines в map
+        Map<FilteredData.Type, FilteredData<?>> map = createFilteredDataMap();
         filterLines(map, lines);
-
-        for (FilteredData data: map.values()) {
-            if (data.getList().size() != 0){
-                //вывести статистику
-                showStats(data, config);
-
-                //записать в файл
-                try {
-                    writeFile(data, config);
-                } catch (IOException e) {
-                    System.out.println(e.getClass().getSimpleName() + ": " + e.getMessage());
-                }
-            }
-        }
-
+        processFilteredData(map, config);
+        System.out.println("\nOK");
     }
 
-    private static void getConfig(String[] args, Config config){
+    //парсинг конфига
+    private static Config parseConfig(String[] args) {
+        Config config = new Config();
         try {
             config.parse(args);
+            System.out.println(config);
+            return config;
         } catch (ParseException e) {
-            System.out.println(e.getClass().getSimpleName() + ": " + e.getMessage());
-            return;
+            System.err.println("Ошибка при разборе аргументов:" + e.getMessage());
+            return null;
         }
     }
 
-    private static void readFiles(List<String> lines, String filePath) throws IOException{
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                lines.add(line);
+    //чтение всех файлов в один список строк
+    private static List<String> readAllFiles(List<Path> fileNames) {
+        List<String> lines = new ArrayList<>();
+        for (Path filePath : fileNames) {
+            try (BufferedReader br = Files.newBufferedReader(filePath)) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    lines.add(line);
+                }
+            } catch (Exception e) {
+                System.err.println("Ошибка при считывании файла " + filePath + ": " + e.getMessage());
             }
-        } catch (IOException e) {
-            throw e;
         }
+        //System.out.println("lines = " + lines);
+        return lines;
     }
-    private static void writeFile(FilteredData data, Config config) throws IOException{
-        Path filePath = Paths.get(config.getOutPath() + "/" + config.getOutPrefix() + data.getName() + ".txt");
 
-        try {
-            // используем BufferedWriter для записи по строкам
-            BufferedWriter writer = Files.newBufferedWriter(filePath,
-                    !config.isAppendMode() ? StandardOpenOption.CREATE : StandardOpenOption.CREATE,
-                    !config.isAppendMode() ? StandardOpenOption.TRUNCATE_EXISTING : StandardOpenOption.APPEND
-            );
+    //запись данных в файл
+    private static void writeFile(FilteredData<?> data, Config config, Path filePath) {
+        Path filename = filePath.getFileName();
+        try (BufferedWriter writer = Files.newBufferedWriter(filePath,
+                !config.isAppendMode() ? StandardOpenOption.TRUNCATE_EXISTING : StandardOpenOption.APPEND,
+                StandardOpenOption.CREATE)) {
             for (Object obj : data.getList()) {
                 writer.write(obj.toString());
                 writer.newLine();
             }
-            writer.close();
-            System.out.println("Файл " + data.getName() + ".txt успешно записан!");
-        } catch (IOException e) {
-            throw e;
+            System.out.println("Файл " + filename + " успешно записан!");
+        } catch (Exception e) {
+            System.err.println("Ошибка при записи файла " + filename + ": " + e.getMessage());
         }
     }
 
+    // cоздание директорий, если их нет
+    private static boolean createDirs(Path filePath) {
+        Path parentDir = filePath.getParent();
+        if (parentDir != null && !Files.exists(parentDir)) {
+            try {
+                Files.createDirectories(parentDir);
+                System.out.println("Созданы необходимые директории: " + parentDir);
+                return true;
+            } catch (IOException | Error e) {
+                System.err.println("Ошибка при создании директории " + parentDir + ": " + e.getMessage());
+                return false;
+            }
 
-    private static void fillMap(Map<FilteredData.Type, FilteredData> map){
+        }
+        return true;
+    }
+
+
+    //создание Map с различными типами данных
+    private static Map<FilteredData.Type, FilteredData<?>> createFilteredDataMap() {
+        Map<FilteredData.Type, FilteredData<?>> map = new HashMap<>();
         map.put(FilteredData.Type.LONG, new FilteredDataLong(LONG_FILENAME));
         map.put(FilteredData.Type.DOUBLE, new FilteredDataDouble(DOUBLE_FILENAME));
         map.put(FilteredData.Type.STRING, new FilteredDataString(STRING_FILENAME));
+        return map;
     }
 
-    private static void filterLines(Map<FilteredData.Type, FilteredData> map, List<String> lines){
+    //фильтрация строк по их типу
+    private static void filterLines(Map<FilteredData.Type, FilteredData<?>> map, List<String> lines) {
         for (String line : lines) {
-            FilteredData filteredData = map.get(FilteredData.getType(line));
-            filteredData.add(line);
+            FilteredData.Type type = FilteredData.getType(line);
+            map.get(type).add(line);
         }
     }
 
-    private static void showStats(FilteredData data, Config config){
-        System.out.println("\n" + data.getList());
-        if (config.isShortStatEnabled() && !config.isFullStatEnabled()){
-            System.out.println(data.getShortStats());
+    //вывод статистики
+    private static void showStats(FilteredData<?> data, Config config) {
+        if (config.isShortStatEnabled() && !config.isFullStatEnabled()) {
+            System.out.println("\n" + data.getShortStats());
         }
-        if (config.isFullStatEnabled()){
-            System.out.println(data.getFullStats());
+        if (config.isFullStatEnabled()) {
+            System.out.println("\n" + data.getFullStats());
         }
+        //System.out.println(data.getList());
     }
 
-
+    //обработка и запись данных в файлы
+    private static void processFilteredData(Map<FilteredData.Type, FilteredData<?>> map, Config config) {
+        for (FilteredData<?> data : map.values()) {
+            if (!data.getList().isEmpty()) {
+                //вывести статистику
+                showStats(data, config);
+                //записать в файл
+                Path filePath = config.getOutPath().resolve(config.getOutPrefix() + data.getName() + ".txt");
+                if (createDirs(filePath)){
+                    writeFile(data, config, filePath);
+                }
+            }
+        }
+    }
 }
