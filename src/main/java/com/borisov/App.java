@@ -17,7 +17,6 @@ public class App {
     private static final String STRING_FILENAME = "strings";
 
     public static void main(String[] args) {
-        //args = new String[]{"-a", "-s", "-f", "-o", "src/out", "-p", "result_", "src/in/in1.txt", "src/in/in2.txt"};
         if (args.length == 0) {
             System.err.println("Использование: [-a] [-s] [-f] [-o] <output-path> [-p] <output-prefix> <input-files...>");
             return;
@@ -52,7 +51,7 @@ public class App {
     }
 
     //чтение всех файлов в один список строк
-    private static List<String> readAllFiles(List<Path> fileNames) {
+    private static List<String> readAllFiles(Set<Path> fileNames) {
         List<String> lines = new ArrayList<>();
         for (Path filePath : fileNames) {
             try (BufferedReader br = Files.newBufferedReader(filePath)) {
@@ -105,8 +104,8 @@ public class App {
     //создание Map с различными типами данных
     private static Map<FilteredData.Type, FilteredData<?>> createFilteredDataMap() {
         Map<FilteredData.Type, FilteredData<?>> map = new HashMap<>();
-        map.put(FilteredData.Type.LONG, new FilteredDataLong(LONG_FILENAME));
-        map.put(FilteredData.Type.DOUBLE, new FilteredDataDouble(DOUBLE_FILENAME));
+        map.put(FilteredData.Type.LONG, new FilteredDataNumber<Long>(LONG_FILENAME, Long::parseLong));
+        map.put(FilteredData.Type.DOUBLE, new FilteredDataNumber<Double>(DOUBLE_FILENAME, Double::parseDouble));
         map.put(FilteredData.Type.STRING, new FilteredDataString(STRING_FILENAME));
         return map;
     }

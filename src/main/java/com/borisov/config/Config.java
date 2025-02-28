@@ -4,7 +4,10 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
 import org.apache.commons.cli.*;
 
 public class Config {
@@ -19,7 +22,7 @@ public class Config {
             Paths.get(str);
             return true;
         }catch (InvalidPathException e){
-            System.out.println("Путь " + str + " некорретный");
+            System.err.println("Путь \"" + str + "\" некорретный");
             return false;
         }
     }
@@ -29,7 +32,7 @@ public class Config {
     private Path outPath;
     private Path outPrefix;
 
-    private List<Path> fileNames;
+    private Set<Path> fileNames;
 
     public Config() {
         appendMode = false;
@@ -37,7 +40,7 @@ public class Config {
         fullStatEnabled = false;
         outPath = Paths.get("");
         outPrefix = Paths.get("");
-        fileNames = new ArrayList<>();
+        fileNames = new HashSet<>();
     }
 
     public boolean isAppendMode() {
@@ -67,11 +70,16 @@ public class Config {
 
     private void setOutPrefix(String outPrefix) {
         if(isPath(outPrefix)){
-            this.outPrefix = Paths.get(outPrefix);
+            Path path = Paths.get(outPrefix);
+            if (path.getNameCount() > 1){
+                System.err.println("\"" + outPrefix + "\" некорретное значение для outPrefix");
+            }else {
+                this.outPrefix = path;
+            }
         }
     }
 
-    public List<Path> getFileNames() {
+    public Set<Path> getFileNames() {
         return fileNames;
     }
 
@@ -121,7 +129,7 @@ public class Config {
         String[] remainingArgs = cmd.getArgs();
         for (String file : remainingArgs) {
             if(isPath(file)){
-                fileNames.add(Paths.get(file));
+                fileNames.add(Paths.get(file).toAbsolutePath());
             }
 
         }

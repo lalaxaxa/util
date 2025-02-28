@@ -18,12 +18,8 @@ public class FilteredDataString extends FilteredData<String> {
 
         for (String line : list) {
             int length = line.length();
-            if (length < minLength) {
-                minLength = length;
-            }
-            if (length > maxLength) {
-                maxLength = length;
-            }
+            if (length < minLength) minLength = length;
+            if (length > maxLength) maxLength = length;
         }
 
         return String.format("%s - Count: %d, Min Length: %d, Max Length: %d",
